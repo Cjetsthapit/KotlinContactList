@@ -1,6 +1,8 @@
 package com.sthapit.contactList
 
+import android.annotation.SuppressLint
 import android.os.Bundle
+import android.provider.ContactsContract
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -26,8 +28,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.sthapit.contactList.components.ContactsList
 import com.sthapit.contactList.components.CustomButton
 import com.sthapit.contactList.components.CustomOutlinedTextField
+import com.sthapit.contactList.data.Contact
 import com.sthapit.contactList.ui.theme.MAPD721A2SrijeetSthapitTheme
 
 class MainActivity : ComponentActivity() {
@@ -92,15 +96,15 @@ fun MainPage(modifier: Modifier = Modifier, context: ComponentActivity) {
                     contactName = ""
                     contactNumber = ""
                 }
-
             }
+
             Spacer(Modifier.height(10.dp))
+
             Text(
                 "Contacts",
                 style = MaterialTheme.typography.headlineMedium,
             )
-
-
+            ContactsList(context = context)
         }
 
         Column(
@@ -125,8 +129,44 @@ fun MainPage(modifier: Modifier = Modifier, context: ComponentActivity) {
     }
 }
 
+@SuppressLint("Range")
+fun loadContacts(context: ComponentActivity): List<Contact> {
 
-data class Contact(val displayName: String, val phoneNumber: String, val id: Long? = null)
+    val contacts = mutableListOf<Contact>()
+
+    context.contentResolver.query(
+        ContactsContract.Contacts.CONTENT_URI,
+        arrayOf(ContactsContract.Contacts.DISPLAY_NAME_PRIMARY, ContactsContract.Contacts._ID),
+        null,
+        null,
+    )?.use { cursor ->
+        if (cursor.moveToFirst()) {
+            do {
+                val displayName =
+                    cursor.getString(cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME_PRIMARY))
+                val contactId = cursor.getLong(cursor.getColumnIndex(ContactsContract.Contacts._ID))
+
+                // Query phone numbers associated with this contact
+
+                context.contentResolver.query(
+                    ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                    arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
+                    "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
+                    arrayOf(contactId.toString()),
+                    null
+                )?.use { phoneCursor ->
+                    if (phoneCursor.moveToFirst()) {
+                        val phoneNumber =
+                            phoneCursor.getString(phoneCursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER))
+                        contacts.add(Contact(displayName, phoneNumber, contactId))
+                    }
+                }
+            } while (cursor.moveToNext())
+        }
+    }
+
+    return contacts
+}
 
 
 @Preview(showBackground = true)
