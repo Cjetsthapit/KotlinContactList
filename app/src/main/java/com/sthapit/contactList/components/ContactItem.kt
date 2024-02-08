@@ -1,6 +1,5 @@
 package com.sthapit.contactList.components
 
-import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,8 +9,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -20,7 +21,10 @@ import androidx.compose.ui.unit.dp
 import com.sthapit.contactList.data.Contact
 
 @Composable
-fun ContactItem(contact: Contact, context: ComponentActivity) {
+fun ContactItem(
+    contact: Contact,
+    showDialog: (Contact) -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxSize()
@@ -42,7 +46,6 @@ fun ContactItem(contact: Contact, context: ComponentActivity) {
                 Column {
                     Text(text = contact.displayName)
                     Text(text = contact.phoneNumber)
-                    Text(text = contact.id.toString())
                 }
             }
 
@@ -52,8 +55,8 @@ fun ContactItem(contact: Contact, context: ComponentActivity) {
                 modifier = Modifier.width(100.dp),
                 horizontalArrangement = Arrangement.End
             ) {
-                CustomButton("Delete") {
-
+                IconButton(onClick = { showDialog(contact) }) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete")
                 }
             }
         }

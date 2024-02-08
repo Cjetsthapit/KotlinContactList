@@ -1,11 +1,9 @@
 package com.sthapit.contactList
 
-import android.annotation.SuppressLint
 import android.os.Bundle
-import android.provider.ContactsContract
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -13,26 +11,32 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.sthapit.contactList.components.AboutSection
 import com.sthapit.contactList.components.ContactsList
 import com.sthapit.contactList.components.CustomButton
 import com.sthapit.contactList.components.CustomOutlinedTextField
 import com.sthapit.contactList.data.Contact
 import com.sthapit.contactList.ui.theme.MAPD721A2SrijeetSthapitTheme
+import com.sthapit.contactList.utils.addContact
+import com.sthapit.contactList.utils.deleteContact
+import com.sthapit.contactList.utils.loadContacts
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -60,6 +64,11 @@ fun MainPage(modifier: Modifier = Modifier, context: ComponentActivity) {
     var contactNumber by remember {
         mutableStateOf("")
     }
+    var contacts by remember { mutableStateOf(emptyList<Contact>()) }
+
+    LaunchedEffect(Unit) {
+        contacts = loadContacts(context)
+    }
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.SpaceBetween
@@ -70,7 +79,7 @@ fun MainPage(modifier: Modifier = Modifier, context: ComponentActivity) {
         ) {
             TopAppBar(
                 title = {
-                    Text(text = "Contacts")
+                    Text(text = "Contacts Provider Application")
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -92,9 +101,12 @@ fun MainPage(modifier: Modifier = Modifier, context: ComponentActivity) {
             CustomButton(text = "Save") {
                 if (contactName.isNotBlank() && contactNumber.isNotBlank()) {
                     val newContact = Contact("$contactName", "$contactNumber")
-
+                    addContact(context, newContact)
+                    contacts = loadContacts(context)
                     contactName = ""
                     contactNumber = ""
+                } else {
+                    Toast.makeText(context, "Empty fields.", Toast.LENGTH_SHORT).show()
                 }
             }
 
@@ -104,70 +116,49 @@ fun MainPage(modifier: Modifier = Modifier, context: ComponentActivity) {
                 "Contacts",
                 style = MaterialTheme.typography.headlineMedium,
             )
-            ContactsList(context = context)
-        }
+            var showDialog by remember { mutableStateOf(false) }
+            var contactToDelete by remember { mutableStateOf<Contact?>(null) }
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color.Black)
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "Srijeet Sthapit",
-                style = MaterialTheme.typography.titleMedium,
-                color = Color.White
-            )
+            val onDialogDismiss: () -> Unit = {
+                showDialog = false
+            }
 
-            Text(
-                text = "301365217",
-                style = MaterialTheme.typography.titleSmall,
-                color = Color.Gray,
-                modifier = Modifier.padding(top = 8.dp)
-            )
-        }
-    }
-}
-
-@SuppressLint("Range")
-fun loadContacts(context: ComponentActivity): List<Contact> {
-
-    val contacts = mutableListOf<Contact>()
-
-    context.contentResolver.query(
-        ContactsContract.Contacts.CONTENT_URI,
-        arrayOf(ContactsContract.Contacts.DISPLAY_NAME_PRIMARY, ContactsContract.Contacts._ID),
-        null,
-        null,
-    )?.use { cursor ->
-        if (cursor.moveToFirst()) {
-            do {
-                val displayName =
-                    cursor.getString(cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME_PRIMARY))
-                val contactId = cursor.getLong(cursor.getColumnIndex(ContactsContract.Contacts._ID))
-
-                // Query phone numbers associated with this contact
-
-                context.contentResolver.query(
-                    ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-                    arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
-                    "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
-                    arrayOf(contactId.toString()),
-                    null
-                )?.use { phoneCursor ->
-                    if (phoneCursor.moveToFirst()) {
-                        val phoneNumber =
-                            phoneCursor.getString(phoneCursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER))
-                        contacts.add(Contact(displayName, phoneNumber, contactId))
-                    }
+            val onDialogConfirm: () -> Unit = {
+                contactToDelete?.let { contact ->
+                    deleteContact(context, contact.id)
+                    contacts = loadContacts(context)
                 }
-            } while (cursor.moveToNext())
+                showDialog = false
+            }
+
+            if (showDialog) {
+                AlertDialog(
+                    onDismissRequest = onDialogDismiss,
+                    title = { Text("Confirm Deletion") },
+                    text = { Text("Are you sure you want to delete ${contactToDelete?.displayName}?") },
+                    confirmButton = {
+                        Button(onClick = onDialogConfirm) {
+                            Text("Confirm")
+                        }
+                    },
+                    dismissButton = {
+                        Button(onClick = onDialogDismiss) {
+                            Text("Cancel")
+                        }
+                    }
+                )
+            }
+
+            ContactsList(
+                contacts = contacts,
+                showDialog = { contactToDelete = it; showDialog = true }
+            )
+
         }
+
+        AboutSection()
     }
-
-    return contacts
 }
-
 
 @Preview(showBackground = true)
 @Composable
